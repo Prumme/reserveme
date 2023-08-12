@@ -21,6 +21,8 @@ defmodule ReservemeWeb.Booking.BookingLive do
           end_of_month={@end_of_month}
           beginning_of_month={@beginning_of_month}
           time_zone={@time_zone}
+          start_date={@start_date}
+          end_date={@end_date}
         />
 
         <.form for={@form} id="login_form" phx-change="validate"  phx-update="ignore" class="pt-8 lg:pt-0 flex flex-col lg:w-1/2 lg:justify-center lg:items-center  space-y-4">
@@ -97,22 +99,37 @@ defmodule ReservemeWeb.Booking.BookingLive do
           <BookingLive.day
             index={i}
             date={Timex.shift(@beginning_of_month, days: i)}
-            time_zone={@time_zone} />
+            time_zone={@time_zone}
+            start_date={@start_date}
+            end_date={@end_date}
+            />
         <% end %>
       </div>
     </div>
     """
   end
 
-  def day(%{index: index, date: date, time_zone: time_zone} = assigns) do
+  def day(%{index: index, date: date, time_zone: time_zone, start_date: start_date, end_date: end_date} = assigns) do
     disabled = Timex.compare(date, Timex.today(time_zone)) == -1
     weekday = Timex.weekday(date, :monday)
+
+    planned =
+    if is_nil(start_date) do
+      false
+    else
+      if is_nil(end_date) do
+        Timex.compare(date, start_date) == 0
+      else
+        Timex.compare(date, start_date, :day) >= 0 && Timex.compare(date, end_date, :day) <= 0
+      end
+    end
 
     class =
       class_list([
         {"content-center w-10 h-10 lg:w-12 lg:h-12 rounded-full justify-center items-center flex ", true},
         {"border-primary border font-bold hover:scale-110 duration-300 cursor-pointer shadow", not disabled},
-        {"text-gray-200 cursor-default pointer-events-none", disabled}
+        {"text-gray-200 cursor-default pointer-events-none", disabled},
+        {"text-white bg-primary", planned}
       ])
 
       class_col = class_list([
@@ -130,7 +147,7 @@ defmodule ReservemeWeb.Booking.BookingLive do
 
     ~H"""
     <div class={@class_col}>
-    <div class={@class}>
+    <div class={@class} phx-click="pick-date" phx-value-date={@date}>
       <p><%= @text %></p>
     </div>
     </div>
@@ -147,6 +164,8 @@ defmodule ReservemeWeb.Booking.BookingLive do
       |> assign(:end_of_month, Timex.end_of_month(Timex.today()))
       |> assign(:time_zone, Timex.local().time_zone)
       |> assign(:form, form)
+      |> assign(:start_date, nil)
+      |> assign(:end_date, nil)
     {:ok, socket}
   end
 
@@ -168,11 +187,42 @@ defmodule ReservemeWeb.Booking.BookingLive do
     {:noreply, socket}
   end
 
+  def handle_event("validate", %{"_target"=>["start"], "start"=> date} = _params, socket) do
+    socket =
+      socket
+      |> assign(:start_date, Timex.parse!(date, "{YYYY}-{0M}-{0D}"))
+    {:noreply, socket}
+  end
+
+  def handle_event("validate", %{"_target"=>["end"], "end"=> date }  = _params, socket) do
+    socket =
+      socket
+      |> assign(:end_date, Timex.parse!(date, "{YYYY}-{0M}-{0D}"))
+    {:noreply, socket}
+  end
+
   def handle_event("validate", params, socket) do
     IO.inspect(params)
     {:noreply, socket}
   end
 
+  def handle_event("pick-date", %{"date" => date}, socket) do
+    socket =
+    if socket.assigns.start_date == nil do
+        socket
+        |> assign(:start_date, Timex.parse!(date, "{YYYY}-{0M}-{0D}"))
+    else
+        socket
+        |> assign(:end_date, Timex.parse!(date, "{YYYY}-{0M}-{0D}"))
+    end
+
+    form = to_form(%{"start" => date, "end" => nil, "lodger" => nil})
+    socket =
+      socket
+      |> assign(:form, form)
+
+    {:noreply, socket}
+  end
 
 
 end
