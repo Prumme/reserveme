@@ -9,7 +9,8 @@ defmodule Reserveme.Planning.Reservation do
     field :payed, :boolean, default: false
     field :customer_comment, :string
     field :admin_comment, :string
-    field :user_id, :id
+    field :lodger, :integer
+    belongs_to :user, Reserveme.Accounts.User
 
     timestamps()
   end
@@ -17,7 +18,7 @@ defmodule Reserveme.Planning.Reservation do
   @doc false
   def changeset(reservation, attrs) do
     reservation
-    |> cast(attrs, [:start, :end, :admin, :payed, :customer_comment, :admin_comment])
-    |> validate_required([:start, :end, :admin, :payed, :customer_comment, :admin_comment])
+    |> cast(attrs, [:start, :end, :admin, :payed, :customer_comment, :admin_comment, :lodger, :user_id])
+    |> validate_required([:start, :end, :admin, :payed, :customer_comment, :admin_comment, :lodger, :user_id])
   end
 end

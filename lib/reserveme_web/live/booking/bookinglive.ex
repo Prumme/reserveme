@@ -2,27 +2,50 @@ defmodule ReservemeWeb.Booking.BookingLive do
   use ReservemeWeb, :live_view
   use Timex
 
+
   import ReservemeWeb.LiveViewHelpers
 
+  alias Reserveme.Planning.Reservation
   alias __MODULE__
 
   def render(assigns) do
     ~H"""
     <div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.8.0/datepicker.min.js"></script>
       <h1 class="text-center text-3xl mb-8 -mt-4">Réserver</h1>
       <div class="w-full divide-y lg:divide-x lg:divide-y-0 flex flex-col lg:flex-row">
-      <BookingLive.calendar
-        previous_month={7}
-        next_month={9}
-        current={@current}
-        end_of_month={@end_of_month}
-        beginning_of_month={@beginning_of_month}
-        time_zone={@time_zone}
-      />
-      <div>
+        <BookingLive.calendar
+          previous_month={7}
+          next_month={9}
+          current={@current}
+          end_of_month={@end_of_month}
+          beginning_of_month={@beginning_of_month}
+          time_zone={@time_zone}
+        />
 
-      </div>
-      </div>
+        <.form for={@form} id="login_form" phx-change="validate"  phx-update="ignore" class="pt-8 lg:pt-0 flex flex-col lg:w-1/2 lg:justify-center lg:items-center  space-y-4">
+
+          <div class="flex flex-col lg:w-1/2">
+            <label>Date d'arrivée</label>
+            <.input field={@form[:start]} type="date" class="rounded-lg border-primary uppercase" required/>
+          </div>
+
+          <div class="flex flex-col lg:w-1/2">
+            <label>Date de départ</label>
+            <.input field={@form[:end]} type="date" class="rounded-lg border-primary uppercase" required/>
+          </div>
+
+          <div class="flex flex-col lg:w-1/2">
+            <label>Nombre de personnes (1-10)</label>
+            <.input field={@form[:lodger]} type="number" min="1" max="10" placeholder="Nombre de personnes" class="rounded-lg border-primary uppercase" required/>
+          </div>
+
+          <div class="text-center rounded-lg bg-secondary py-2 cursor-pointer lg:w-1/2">
+            <p>Je reserve</p>
+          </div>
+          </.form>
+        </div>
+
     </div>
     """
   end
@@ -85,16 +108,17 @@ defmodule ReservemeWeb.Booking.BookingLive do
     disabled = Timex.compare(date, Timex.today(time_zone)) == -1
     weekday = Timex.weekday(date, :monday)
 
-    if index == 0 do
-      IO.inspect(weekday)
-    end
-
     class =
       class_list([
-        {"col-start-#{weekday}", index == 0},
         {"content-center w-10 h-10 lg:w-12 lg:h-12 rounded-full justify-center items-center flex ", true},
         {"border-primary border font-bold hover:scale-110 duration-300 cursor-pointer shadow", not disabled},
         {"text-gray-200 cursor-default pointer-events-none", disabled}
+      ])
+
+      class_col = class_list([
+        {"grid-column-#{weekday}", index == 0},
+        {"w-full flex justify-center", true},
+
       ])
 
     assigns =
@@ -102,9 +126,10 @@ defmodule ReservemeWeb.Booking.BookingLive do
       |> assign(disabled: disabled)
       |> assign(:text, Timex.format!(date, "{D}"))
       |> assign(:class, class)
+      |> assign(:class_col, class_col)
 
     ~H"""
-    <div class="w-full flex justify-center">
+    <div class={@class_col}>
     <div class={@class}>
       <p><%= @text %></p>
     </div>
@@ -113,12 +138,15 @@ defmodule ReservemeWeb.Booking.BookingLive do
   end
 
   def mount(_params, _session, socket) do
+    form = to_form(%{"start" => nil, "end" => nil, "lodger" => nil})
+
     socket =
       socket
       |> assign(:current, Timex.today())
       |> assign(:beginning_of_month, Timex.beginning_of_month(Timex.today()))
       |> assign(:end_of_month, Timex.end_of_month(Timex.today()))
       |> assign(:time_zone, Timex.local().time_zone)
+      |> assign(:form, form)
     {:ok, socket}
   end
 
@@ -139,5 +167,12 @@ defmodule ReservemeWeb.Booking.BookingLive do
       |> update(:end_of_month, &Timex.shift(&1, months: -1))
     {:noreply, socket}
   end
+
+  def handle_event("validate", params, socket) do
+    IO.inspect(params)
+    {:noreply, socket}
+  end
+
+
 
 end
