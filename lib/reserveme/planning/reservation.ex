@@ -19,6 +19,6 @@ defmodule Reserveme.Planning.Reservation do
   def changeset(reservation, attrs) do
     reservation
     |> cast(attrs, [:start, :end, :admin, :payed, :customer_comment, :admin_comment, :lodger, :user_id])
-    |> validate_required([:start, :end, :admin, :payed, :customer_comment, :admin_comment, :lodger, :user_id])
+    |> validate_required([:start, :end, :lodger,])
   end
 end

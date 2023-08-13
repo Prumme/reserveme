@@ -15,8 +15,6 @@ defmodule ReservemeWeb.Booking.BookingLive do
       <h1 class="text-center text-3xl mb-8 -mt-4">Réserver</h1>
       <div class="w-full divide-y lg:divide-x lg:divide-y-0 flex flex-col lg:flex-row">
         <BookingLive.calendar
-          previous_month={7}
-          next_month={9}
           current={@current}
           end_of_month={@end_of_month}
           beginning_of_month={@beginning_of_month}
@@ -25,39 +23,20 @@ defmodule ReservemeWeb.Booking.BookingLive do
           end_date={@end_date}
         />
 
-        <.form for={@form} id="login_form" phx-change="validate"  phx-update="ignore" class="pt-8 lg:pt-0 flex flex-col lg:w-1/2 lg:justify-center lg:items-center  space-y-4">
+        <BookingLive.form_component
+          form={@form}
+          time_zone={@time_zone}
+          start_date={@start_date}
+          end_date={@end_date}
+          />
 
-          <div class="flex flex-col lg:w-1/2">
-            <label>Date d'arrivée</label>
-            <.input field={@form[:start]} type="date" class="rounded-lg border-primary uppercase" required/>
-          </div>
-
-          <div class="flex flex-col lg:w-1/2">
-            <label>Date de départ</label>
-            <.input field={@form[:end]} type="date" class="rounded-lg border-primary uppercase" required/>
-          </div>
-
-          <div class="flex flex-col lg:w-1/2">
-            <label>Nombre de personnes (1-10)</label>
-            <.input field={@form[:lodger]} type="number" min="1" max="10" placeholder="Nombre de personnes" class="rounded-lg border-primary uppercase" required/>
-          </div>
-
-          <div class="text-center rounded-lg bg-secondary py-2 cursor-pointer lg:w-1/2">
-            <p>Je reserve</p>
-          </div>
-          </.form>
         </div>
 
     </div>
     """
   end
 
-  def calendar(
-    %{
-    previous_month: _previous_month,
-    next_month: _next_month
-    } = assigns
-  ) do
+  def calendar(assigns) do
 
     ~H"""
     <div class="w-full lg:w-1/2 rounded-2xl border border-primary p-3 shadow-lg mb-4 lg:mr-4">
@@ -154,8 +133,36 @@ defmodule ReservemeWeb.Booking.BookingLive do
     """
   end
 
+
+  def form_component(assigns) do
+
+
+
+    ~H"""
+    <.form for={@form} id="login_form" phx-change="validate" class="pt-8 lg:pt-0 flex flex-col lg:w-1/2 lg:justify-center lg:items-center  space-y-4">
+      <div class="flex flex-col lg:w-1/2">
+        <label>Date d'arrivée</label>
+        <.input field={@form[:start]}  type="date" class="rounded-lg border-primary uppercase" required/>
+      </div>
+
+      <div class="flex flex-col lg:w-1/2">
+        <label>Date de départ</label>
+        <.input field={@form[:end]}  type="date" class="rounded-lg border-primary uppercase" required/>
+      </div>
+
+      <div class="flex flex-col lg:w-1/2">
+        <label>Nombre de personnes (1-10)</label>
+        <.input field={@form[:lodger]} type="number" min="1" max="10" placeholder="Nombre de personnes" class="rounded-lg border-primary uppercase" required/>
+      </div>
+
+      <div class="text-center rounded-lg bg-secondary py-2 cursor-pointer lg:w-1/2">
+        <p>Je reserve</p>
+      </div>
+      </.form>
+    """
+  end
   def mount(_params, _session, socket) do
-    form = to_form(%{"start" => nil, "end" => nil, "lodger" => nil})
+    changeset = Reservation.changeset(%Reservation{}, %{})
 
     socket =
       socket
@@ -163,9 +170,9 @@ defmodule ReservemeWeb.Booking.BookingLive do
       |> assign(:beginning_of_month, Timex.beginning_of_month(Timex.today()))
       |> assign(:end_of_month, Timex.end_of_month(Timex.today()))
       |> assign(:time_zone, Timex.local().time_zone)
-      |> assign(:form, form)
       |> assign(:start_date, nil)
       |> assign(:end_date, nil)
+      |> assign_form(changeset)
     {:ok, socket}
   end
 
@@ -187,17 +194,29 @@ defmodule ReservemeWeb.Booking.BookingLive do
     {:noreply, socket}
   end
 
-  def handle_event("validate", %{"_target"=>["start"], "start"=> date} = _params, socket) do
+  def handle_event("validate", %{"_target" => ["reservation", "start"], "reservation" => %{"start" => date}} = _params, socket) do
+
+    changeset = Reservation.changeset(%Reservation{}, %{start: Timex.to_date(Timex.parse!(date, "{YYYY}-{0M}-{0D}"))})
+
+
     socket =
       socket
       |> assign(:start_date, Timex.parse!(date, "{YYYY}-{0M}-{0D}"))
+      |> assign_form(changeset)
+
+    IO.inspect(socket.assigns)
+
     {:noreply, socket}
   end
 
-  def handle_event("validate", %{"_target"=>["end"], "end"=> date }  = _params, socket) do
+  def handle_event("validate", %{"_target" => ["reservation", "end"], "reservation" => %{"end" => date} }  = _params, socket) do
+
+    changeset = Reservation.changeset(%Reservation{}, %{end: Timex.to_date(Timex.parse!(date, "{YYYY}-{0M}-{0D}"))})
+
     socket =
       socket
       |> assign(:end_date, Timex.parse!(date, "{YYYY}-{0M}-{0D}"))
+      |> assign_form(changeset)
     {:noreply, socket}
   end
 
@@ -209,20 +228,32 @@ defmodule ReservemeWeb.Booking.BookingLive do
   def handle_event("pick-date", %{"date" => date}, socket) do
     socket =
     if socket.assigns.start_date == nil do
-        socket
-        |> assign(:start_date, Timex.parse!(date, "{YYYY}-{0M}-{0D}"))
+
+      changeset = Reservation.changeset(%Reservation{}, %{start: Timex.to_date(Timex.parse!(date, "{YYYY}-{0M}-{0D}"))})
+
+      socket
+      |> assign(:start_date, Timex.to_date(Timex.parse!(date, "{YYYY}-{0M}-{0D}")))
+      |> assign_form(changeset)
     else
-        socket
-        |> assign(:end_date, Timex.parse!(date, "{YYYY}-{0M}-{0D}"))
+      changeset = Reservation.changeset(%Reservation{}, %{end: Timex.to_date(Timex.parse!(date, "{YYYY}-{0M}-{0D}")), start: socket.assigns.start_date})
+      socket
+      |> assign(:end_date, Timex.to_date(Timex.parse!(date, "{YYYY}-{0M}-{0D}")))
+      |> assign_form(changeset)
     end
 
-    form = to_form(%{"start" => date, "end" => nil, "lodger" => nil})
-    socket =
-      socket
-      |> assign(:form, form)
+      IO.inspect(socket.assigns)
 
     {:noreply, socket}
   end
 
+  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+    form = to_form(changeset, as: "reservation")
+
+    if changeset.valid? do
+      assign(socket, form: form, check_errors: false)
+    else
+      assign(socket, form: form)
+    end
+  end
 
 end
